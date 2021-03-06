@@ -251,10 +251,13 @@ def tlearner(
     )
     def trainer(**kwargs):
         func = workflows.train_tlearner(**kwargs)
+        print(f"*** ran tlearner with the following args: {kwargs} ***")
         return func
 
     results = []
     for trial in range(config.get("num_trials")):
+        print(f"\nstarting trial {trial}\n")
+        # Andrew: each trial is a different data set. IHDP is semi-synthetic and each trial has different y0,y1
         results.append(
             trainer.remote(
                 job_dir=config["job_dir"],
@@ -373,6 +376,7 @@ def cevae(
 def evaluate(
     experiment_dir,
 ):
+    print("starting evaluation")
     summary_path = os.path.join(experiment_dir, "summary.json")
     if not os.path.exists(summary_path):
         ray.init(

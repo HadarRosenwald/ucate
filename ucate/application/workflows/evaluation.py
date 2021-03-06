@@ -45,6 +45,7 @@ POLICIES = [
 
 @ray.remote
 def evaluate(output_dir):
+    print("*** this is the evaluation ***")
     predictions_train = np.load(
         os.path.join(output_dir, "predictions_train.npz"), allow_pickle=True
     )

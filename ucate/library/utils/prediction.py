@@ -2,10 +2,13 @@ import numpy as np
 
 
 def mc_sample_tl(x, model_0, model_1, mean=0.0, std=1.0, mc_samples=100):
+    print("-- calling mc_sample_2 with model_0 --")
     y_0, h_0 = mc_sample_2(x, model_0, mc_samples)
     y_0 = y_0 * std + mean
+    print("-- calling mc_sample_2 with model_1 --")
     y_1, h_1 = mc_sample_2(x, model_1, mc_samples)
     y_1 = y_1 * std + mean
+    print(f"mc_sample_tl is returning (y_0, h_0), (y_1, h_1) = (mu_0, y_0), (mu_1, y_1). shapes = {y_0.shape}")
     return (y_0, h_0), (y_1, h_1)
 
 
@@ -25,6 +28,7 @@ def mc_sample(x, model, mc_samples=100):
 
 
 def mc_sample_2(x, model, mc_samples=100):
+    print("mc_sample_2: this will trigger 100*(several mpl.mc_sample_step -> core.py)")
     y, h = [], []
     for _ in range(mc_samples):
         y_pred, h_pred = model(x, batch_size=200)

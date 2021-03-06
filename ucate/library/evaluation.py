@@ -23,7 +23,9 @@ def get_predictions(
             std=dl.y_std,
             mc_samples=mc_samples,
         )
-    else:
+        # I checked, we are here
+        print("finish running mc_sample_tl for model_0 and model_1")
+    else:  # this is not happening
         t_0 = np.concatenate(
             [
                 np.ones((x.shape[0], 1), dtype="float32"),
@@ -40,9 +42,13 @@ def get_predictions(
             std=dl.y_std,
             mc_samples=mc_samples,
         )
+        # we are not here
+    print("now we run {core}.mc_sample for model_prop")
     p_t, _ = prediction.mc_sample_2(x=x, model=model_prop.mc_sample)
     p_t = p_t.mean(0)
     return {"mu_0": mu_0, "mu_1": mu_1, "y_0": y_0, "y_1": y_1, "p_t": p_t}
+# each (except for p_t) is with the shape of (num_mc_steps, n, 1). for train ihdp with defaults - its 100*672.
+# to my understanding, its for each mc step, for each example - its the mu0 and mu 1 (y0,y1 & p_t are not that relevant)
 
 
 def evaluate(
@@ -58,6 +64,7 @@ def evaluate(
     quantiles=None,
     exclude_population=False,
 ):
+    print("IM HERE! At evaluate")
     predictions = get_predictions(
         dl=dl,
         model_0=model_0,

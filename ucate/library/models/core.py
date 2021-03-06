@@ -61,6 +61,8 @@ class BaseModel(tf.keras.Model, ABC):
             workers=1,
             use_multiprocessing=False
     ):
+        # Andrew - this is just for doing it in batches & handling distributed (with multiple gpu's). mainly for mnist
+        # in practice - mc will just activate dropout in inference
         outputs = None
         with self.distribute_strategy.scope():
             data_handler = data_adapter.DataHandler(
