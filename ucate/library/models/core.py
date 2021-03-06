@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import tensorflow as tf
 from tensorflow.python.util import nest
 from tensorflow.python.eager import context
@@ -9,7 +11,8 @@ eps = tf.keras.backend.epsilon()
 ln = tf.keras.backend.log
 
 
-class BaseModel(tf.keras.Model):
+# I added ABC and abstractmethod to clarify that this is an abstract class, no one instantiates it.
+class BaseModel(tf.keras.Model, ABC):
     def __init__(
             self,
             *args,
@@ -21,6 +24,7 @@ class BaseModel(tf.keras.Model):
         )
         self.mc_sample_function = None
 
+    @abstractmethod
     def mc_sample_step(
             self,
             inputs
