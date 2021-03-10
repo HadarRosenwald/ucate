@@ -96,6 +96,7 @@ def evaluate_2(
     quantiles=None,
     exclude_population=False,
 ):
+    print(f"## starting evaluation calculations for *{'test' if test_set else 'train'}* ##")
     tag = "test" if test_set else "train"
     _, cate = dl.get_test_data(test_set=test_set)
     cate_pred, predictive_uncrt, epistemic_unct = prediction.cate_measures(
@@ -158,6 +159,7 @@ def evaluate_2(
                 quantiles["Epistemic Uncertainty"] = [
                     np.quantile(epistemic_unct, 1.0 - pct)
                 ]
+                print(f"for pct={pct} quantiles[Epistemic Uncertainty] {np.quantile(epistemic_unct, 1.0 - pct)} {', which is the max(epistemic_unct)' if np.quantile(epistemic_unct, 1.0 - pct)==max(epistemic_unct) else ''}")
             else:
                 quantiles["Propensity quantile"].append(
                     np.quantile(p_t, [pct / 2, 1.0 - (pct / 2)])
@@ -186,6 +188,7 @@ def evaluate_2(
         )
         ind_prop_mag = (overlap_score >= quantiles["Propensity trimming"][i]).ravel()
         ind_unct = (epistemic_unct <= quantiles["Epistemic Uncertainty"][i]).ravel()
+        print(f"\nnumber of points *not* rejected: {np.count_nonzero(ind_unct)} which is {round(100*np.count_nonzero(ind_unct)/len(ind_unct))}% of the points")
         ind_random = np.random.choice([False, True], ind_unct.shape, p=[pct, 1.0 - pct])
         pehe_prop.append(
             np.sqrt(np.square(cate[ind_prop] - cate_pred[ind_prop]).mean().ravel())
@@ -197,6 +200,7 @@ def evaluate_2(
             )
         )
         errors_prop_mag.append(np.sum(errors[ind_prop_mag]).ravel() / num_examples)
+        print(f"calculating pehe_unct, with {cate[ind_unct].shape} samples. avg cate-cate_pred: {np.square(cate[ind_unct] - cate_pred[ind_unct]).mean().ravel()}")
         pehe_unct.append(
             np.sqrt(np.square(cate[ind_unct] - cate_pred[ind_unct]).mean().ravel())
         )
@@ -217,6 +221,8 @@ def evaluate_2(
     errors_prop_mag = np.asarray(errors_prop_mag).ravel()
     pehe_unct = np.asarray(pehe_unct).ravel()
     errors_unct = np.asarray(errors_unct).ravel()
+    print(f"shape of pehe_unct: {pehe_unct.shape}")
+    print(f"shape of errors_unct: {pehe_unct.shape}")
     pehe_random = np.asarray(pehe_random).ravel()
     errors_random = np.asarray(errors_random).ravel()
     if regression:

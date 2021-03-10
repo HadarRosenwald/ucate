@@ -41,6 +41,7 @@ def cate_measures(mu_0, mu_1, y_0, y_1, regression):
     cate_pred = (mu_1 - mu_0).mean(0).ravel()
     predictive_uncrt = np.var(y_1 - y_0, 0).ravel()
     epistemic_unct = np.var(mu_1 - mu_0, 0).ravel()
+    print(f"mu_1 of size: {mu_1.shape}, mu_0 of size: {mu_0.shape}, epistemic_unct of size {epistemic_unct.shape}")
     return cate_pred, predictive_uncrt, epistemic_unct
 
 
