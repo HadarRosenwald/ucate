@@ -66,7 +66,6 @@ class BayesianNeuralNetwork(core.BaseModel):
         x = inputs
         for block in self.blocks:
             training = not self.bootstrap_enabled
-            print("using mc dropout" if training else "mc dropout disabled")
             x = block(x, training=training) # FALSE FOR NO MC!!
             # Andrew: yes each bloack is a layer, but running it like that is essentially running it through the
             # entire NN. it's broken apart for the cevae, but its running through the entire NN.
