@@ -232,6 +232,21 @@ def tarnet(
     default=100,
     help="number of mc_samples at inference, default=100",
 )
+
+@click.option(
+    "--bootstrap",
+    default=False,
+    type=bool,
+    help="True for bootstrap, default False. If both bootstrap options are false - will use mc-dropout",
+)
+
+@click.option(
+    "--weighted-bootstrap",
+    default=False,
+    type=bool,
+    help="True for weighted bootstrap, default False. If both bootstrap options are false - will use mc-dropout",
+)
+
 def tlearner(
     context,
     base_filters,
@@ -241,7 +256,11 @@ def tlearner(
     batch_size,
     learning_rate,
     mc_samples,
+    bootstrap,
+    weighted_bootstrap,
 ):
+    if bootstrap and weighted_bootstrap:
+        raise ValueError("can't assign True for both bootstrap and weighted bootstrap")
     config = context.obj
     dataset_name = config.get("dataset_name")
     exclude_population = config.get("exclude_population")
@@ -273,6 +292,8 @@ def tlearner(
                 batch_size=batch_size,
                 learning_rate=learning_rate,
                 mc_samples=mc_samples,
+                bootstrap=bootstrap,
+                weighted_bootstrap=weighted_bootstrap,
             )
         )
     ray.get(results)

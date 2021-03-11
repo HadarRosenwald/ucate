@@ -15,6 +15,7 @@ ln = tf.keras.backend.log
 class BaseModel(tf.keras.Model, ABC):
     def __init__(
             self,
+            bootstrap_enabled=False,
             *args,
             **kwargs
     ):
@@ -23,6 +24,7 @@ class BaseModel(tf.keras.Model, ABC):
             **kwargs
         )
         self.mc_sample_function = None
+        self.bootstrap_enabled = bootstrap_enabled
 
     @abstractmethod
     def mc_sample_step(

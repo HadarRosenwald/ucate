@@ -24,7 +24,15 @@ def train(
     epochs,
     learning_rate,
     mc_samples,
+    bootstrap,
+    weighted_bootstrap,
 ):
+    if not(weighted_bootstrap or bootstrap):
+        s = "mc-dropout"
+    else:
+        s = "weighted bootstrap" if weighted_bootstrap else "bootstrap"
+    print(f"~~~~~~ Using {s} for uncertainty estimation ~~~~~~")
+
     gpus = tf.config.experimental.list_physical_devices("GPU")
     if gpus:
         try:
@@ -74,7 +82,7 @@ def train(
         model_name = "cnn"
         loss = tf.keras.losses.BinaryCrossentropy()
         error = tf.keras.metrics.BinaryAccuracy()
-    x_train, y_train, t_train, examples_per_treatment = dl.get_training_data()
+    x_train, y_train, t_train, examples_per_treatment = dl.get_training_data(bootstrap=bootstrap)
     idx_0_train = np.where(t_train[:, 0])[0]
     idx_1_train = np.where(t_train[:, 1])[0]
 
@@ -87,6 +95,7 @@ def train(
         dropout_rate=dropout_rate,
         regression=regression,
         depth=depth,
+        bootstrap_enabled=bootstrap or weighted_bootstrap,
     )
     model_0.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -105,6 +114,7 @@ def train(
         dropout_rate=dropout_rate,
         regression=regression,
         depth=depth,
+        bootstrap_enabled=bootstrap or weighted_bootstrap,
     )
     model_1.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -123,6 +133,7 @@ def train(
         dropout_rate=dropout_rate,
         regression=False,
         depth=2,
+        bootstrap_enabled=bootstrap or weighted_bootstrap,
     )
     model_prop.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -135,107 +146,154 @@ def train(
 
     # Instantiate trainer
 
-    print("\n---- AND NOW - we fit ----")
-    _ = model_0.fit(
-        [x_train[idx_0_train], y_train[idx_0_train]],  # Andrew: this is x and y. see that training is done on 'inupt'
-        [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])],  # Andrew: this is not used in t-learner
-        batch_size=batch_size,
-        epochs=epochs,
-        validation_split=0.3,
-        shuffle=True,
-        callbacks=[
-            tf.keras.callbacks.ModelCheckpoint(
-                filepath=model_0_checkpoint, save_best_only=True, save_weights_only=True
-            ),
-            tf.keras.callbacks.EarlyStopping(patience=50),
-        ],
-        verbose=verbose,
-    )
+    predictions_train_bootstrap = list()
+    predictions_test_bootstrap = list()
 
-    print("*** fitted model_0 ***")
-    _ = model_1.fit(
-        [x_train[idx_1_train], y_train[idx_1_train]],
-        [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])],
-        batch_size=batch_size,
-        epochs=epochs,
-        validation_split=0.3,
-        shuffle=True,
-        callbacks=[
-            tf.keras.callbacks.ModelCheckpoint(
-                filepath=model_1_checkpoint, save_best_only=True, save_weights_only=True
-            ),
-            tf.keras.callbacks.EarlyStopping(patience=50),
-        ],
-        verbose=verbose,
-    )
+    for i in range(mc_samples if (bootstrap or weighted_bootstrap) else 1):
+        print("\n---- AND NOW - we fit ----")
+        _ = model_0.fit(
+            [x_train[idx_0_train], y_train[idx_0_train]],  # Andrew: this is x and y. see that training is done on 'inupt'
+            [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])],  # Andrew: this is not used in t-learner
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_split=0.3,
+            shuffle=True,
+            callbacks=[
+                tf.keras.callbacks.ModelCheckpoint(
+                    filepath=model_0_checkpoint, save_best_only=True, save_weights_only=True
+                ),
+                tf.keras.callbacks.EarlyStopping(patience=50),
+            ],
+            verbose=verbose,
+            sample_weight=np.random.exponential(scale=1.0, size=len(idx_0_train)) if weighted_bootstrap else None
+        )
 
-    print("*** fitted model_1 ***")
-    _ = model_prop.fit(
-        [x_train, t_train[:, -1]],
-        [t_train[:, -1], np.zeros_like(t_train[:, -1])],
-        batch_size=batch_size,
-        epochs=epochs,
-        validation_split=0.3,
-        shuffle=True,
-        callbacks=[
-            tf.keras.callbacks.ModelCheckpoint(
-                filepath=model_prop_checkpoint,
-                save_best_only=True,
-                save_weights_only=True,
-            ),
-            tf.keras.callbacks.EarlyStopping(patience=50),
-        ],
-        verbose=verbose,
-    )
+        print("*** fitted model_0 ***")
+        _ = model_1.fit(
+            [x_train[idx_1_train], y_train[idx_1_train]],
+            [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])],
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_split=0.3,
+            shuffle=True,
+            callbacks=[
+                tf.keras.callbacks.ModelCheckpoint(
+                    filepath=model_1_checkpoint, save_best_only=True, save_weights_only=True
+                ),
+                tf.keras.callbacks.EarlyStopping(patience=50),
+            ],
+            verbose=verbose,
+            sample_weight=np.random.exponential(scale=1.0, size=len(idx_1_train)) if weighted_bootstrap else None
+        )
 
-    print("*** fitted model_prop ***")
-    print("---- finished fitting on train data ----\n")
-    # Restore best models
-    model_0.load_weights(model_0_checkpoint)
-    model_1.load_weights(model_1_checkpoint)
-    model_prop.load_weights(model_prop_checkpoint)
+        print("*** fitted model_1 ***")
+        _ = model_prop.fit(
+            [x_train, t_train[:, -1]],
+            [t_train[:, -1], np.zeros_like(t_train[:, -1])],
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_split=0.3,
+            shuffle=True,
+            callbacks=[
+                tf.keras.callbacks.ModelCheckpoint(
+                    filepath=model_prop_checkpoint,
+                    save_best_only=True,
+                    save_weights_only=True,
+                ),
+                tf.keras.callbacks.EarlyStopping(patience=50),
+            ],
+            verbose=verbose,
+            sample_weight=np.random.exponential(scale=1.0, size=len(x_train)) if weighted_bootstrap else None
+        )
 
-    print("get_prediction calls prediction.mc_sample_tl [with argument of type mlp.BayesianNeuralNetwork.mc_sample "
-          "(inherited from core.py)] -> prediction.mc_sample_2 that runs through the model (mlp.mc_sample) for "
-          "inference. By doing that - mc_sample_step (implemented in mlp) is called.")
+        print("*** fitted model_prop ***")
+        print("---- finished fitting on train data ----\n")
+        # Restore best models
+        model_0.load_weights(model_0_checkpoint)
+        model_1.load_weights(model_1_checkpoint)
+        model_prop.load_weights(model_prop_checkpoint)
 
-    print("\n^^^^^ evaluation.get_predictions for train ^^^^^")
-    # why calling this for train?
-    # Andrew: was just interested. Just for the plots, for sanity to see that everything is working
-    predictions_train = evaluation.get_predictions(
-        dl=dl,
-        model_0=model_0,
-        model_1=model_1,
-        model_prop=model_prop,
-        mc_samples=mc_samples,
-        test_set=False,
-    )
+        print("get_prediction calls prediction.mc_sample_tl [with argument of type mlp.BayesianNeuralNetwork.mc_sample "
+              "(inherited from core.py)] -> prediction.mc_sample_2 that runs through the model (mlp.mc_sample) for "
+              "inference. By doing that - mc_sample_step (implemented in mlp) is called.")
+
+        print("\n^^^^^ evaluation.get_predictions for train ^^^^^")
+        # why calling this for train?
+        # Andrew: was just interested. Just for the plots, for sanity to see that everything is working
+        predictions_train = evaluation.get_predictions(
+            dl=dl,
+            model_0=model_0,
+            model_1=model_1,
+            model_prop=model_prop,
+            mc_samples=mc_samples,
+            test_set=False,
+        )
+        s = ""
+        for k, v in predictions_train.items():
+            s += f"{k} with values shape of {v.shape} (type={type(v)}, "
+        print(f"** results: {s} **")
+        print("^^^^^ evaluation.get_predictions for train is over ^^^^^")
+
+        print("\n^^^^^ evaluation.get_predictions for test ^^^^^")
+        predictions_test = evaluation.get_predictions(
+            dl=dl,
+            model_0=model_0,
+            model_1=model_1,
+            model_prop=model_prop,
+            mc_samples=mc_samples,
+            test_set=True,
+        )
+
+        s = ""
+        for k, v in predictions_test.items():
+            s += f"{k} with values shape of {v.shape}, "
+        print(f"** results: {s} **")
+        a = predictions_test['mu_0']
+        print(f"(for example for the first sample - min mc value={np.amin(a[:,0])}, max mc value={np.amax(a[:,0])}, "
+              f"avg of mc runs={np.average(a[:,0])}")
+        print("^^^^^ evaluation.get_predictions for test is over ^^^^^")
+
+        print(f"if mc is off, all 100 samples should be identical. is that the case? {np.all(a[:,0] == a[:,0][0])}")
+
+        predictions_train_bootstrap.append(predictions_train)
+        predictions_test_bootstrap.append(predictions_test)
+
+        np.savez(os.path.join(output_dir, f"predictions_train_{i}.npz"), **predictions_train)
+        np.savez(os.path.join(output_dir, f"predictions_test_{i}.npz"), **predictions_test)
+
+    print(f"predictions_train_bootstrap is a {type(predictions_train_bootstrap)} in the size of {len(predictions_train_bootstrap)}")
+    predictions_train = dict()
+    predictions_test = dict()
+    for item in predictions_train_bootstrap:
+        for k, v in item.items():
+            if k != 'p_t':
+                if k in predictions_train.keys():
+                    predictions_train[k] = np.append(predictions_train[k], v[0].reshape([1, *v[0].shape]), axis=0)
+                else:
+                    predictions_train[k] = v[0].reshape([1, *v[0].shape])
+            else:
+                predictions_train[k] = v
+
+    for item in predictions_test_bootstrap:
+        for k, v in item.items():
+            if k != 'p_t':
+                if k in predictions_test.keys():
+                    predictions_test[k] = np.append(predictions_test[k],v[0].reshape([1, *v[0].shape]), axis=0)
+                else:
+                    predictions_test[k] = v[0].reshape([1, *v[0].shape])
+            else:
+                predictions_test[k] = v
+
+    print("predictions_train final:")
     s = ""
     for k, v in predictions_train.items():
-        s += f"{k} with values shape of {v.shape} (type={type(v)}, "
+        s += f"{k} with values shape of {v.shape}, "
     print(f"** results: {s} **")
-    print("^^^^^ evaluation.get_predictions for train is over ^^^^^")
-
-    print("\n^^^^^ evaluation.get_predictions for test ^^^^^")
-    predictions_test = evaluation.get_predictions(
-        dl=dl,
-        model_0=model_0,
-        model_1=model_1,
-        model_prop=model_prop,
-        mc_samples=mc_samples,
-        test_set=True,
-    )
-
+    print("\nprediction_test final:")
     s = ""
     for k, v in predictions_test.items():
         s += f"{k} with values shape of {v.shape}, "
     print(f"** results: {s} **")
-    a = predictions_test['mu_0']
-    print(f"(for example for the first sample - min mc value={np.amin(a[:,0])}, max mc value={np.amax(a[:,0])}, "
-          f"avg of mc runs={np.average(a[:,0])}")
-    print("^^^^^ evaluation.get_predictions for test is over ^^^^^")
-
-    print(f"if mc is off, all 100 samples should be identical. is that the case? {np.all(a[:,0] == a[:,0][0])}")
 
     np.savez(os.path.join(output_dir, "predictions_train.npz"), **predictions_train)
     np.savez(os.path.join(output_dir, "predictions_test.npz"), **predictions_test)
