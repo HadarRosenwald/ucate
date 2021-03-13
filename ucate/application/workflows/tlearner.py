@@ -151,6 +151,9 @@ def train(
 
     for i in range(mc_samples if (bootstrap or weighted_bootstrap) else 1):
         print("\n---- AND NOW - we fit ----")
+
+        sample_weights = np.random.exponential(scale=1.0, size=len(idx_0_train))
+        sample_weights /= np.average(sample_weights)
         _ = model_0.fit(
             [x_train[idx_0_train], y_train[idx_0_train]],  # Andrew: this is x and y. see that training is done on 'inupt'
             [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])],  # Andrew: this is not used in t-learner
@@ -165,10 +168,13 @@ def train(
                 tf.keras.callbacks.EarlyStopping(patience=50),
             ],
             verbose=verbose,
-            sample_weight=np.random.exponential(scale=1.0, size=len(idx_0_train)) if weighted_bootstrap else None
+            sample_weight=sample_weights if weighted_bootstrap else None
         )
 
         print("*** fitted model_0 ***")
+
+        sample_weights = np.random.exponential(scale=1.0, size=len(idx_1_train))
+        sample_weights /= np.average(sample_weights)
         _ = model_1.fit(
             [x_train[idx_1_train], y_train[idx_1_train]],
             [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])],
@@ -183,10 +189,13 @@ def train(
                 tf.keras.callbacks.EarlyStopping(patience=50),
             ],
             verbose=verbose,
-            sample_weight=np.random.exponential(scale=1.0, size=len(idx_1_train)) if weighted_bootstrap else None
+            sample_weight=sample_weights if weighted_bootstrap else None
         )
 
         print("*** fitted model_1 ***")
+
+        sample_weights = np.random.exponential(scale=1.0, size=len(x_train))
+        sample_weights /= np.average(sample_weights)
         _ = model_prop.fit(
             [x_train, t_train[:, -1]],
             [t_train[:, -1], np.zeros_like(t_train[:, -1])],
@@ -203,7 +212,7 @@ def train(
                 tf.keras.callbacks.EarlyStopping(patience=50),
             ],
             verbose=verbose,
-            sample_weight=np.random.exponential(scale=1.0, size=len(x_train)) if weighted_bootstrap else None
+            sample_weight=sample_weights if weighted_bootstrap else None
         )
 
         print("*** fitted model_prop ***")
