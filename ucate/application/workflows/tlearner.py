@@ -271,27 +271,32 @@ def train(
         np.savez(os.path.join(output_dir, f"predictions_test_{i}.npz"), **predictions_test)
 
     print(f"predictions_train_bootstrap is a {type(predictions_train_bootstrap)} in the size of {len(predictions_train_bootstrap)}")
+
     predictions_train = dict()
     predictions_test = dict()
-    for item in predictions_train_bootstrap:
-        for k, v in item.items():
-            if k != 'p_t':
-                if k in predictions_train.keys():
-                    predictions_train[k] = np.append(predictions_train[k], v[0].reshape([1, *v[0].shape]), axis=0)
+    if bootstrap or weighted_bootstrap:
+        for item in predictions_train_bootstrap:
+            for k, v in item.items():
+                if k != 'p_t':
+                    if k in predictions_train.keys():
+                        predictions_train[k] = np.append(predictions_train[k], v[0].reshape([1, *v[0].shape]), axis=0)
+                    else:
+                        predictions_train[k] = v[0].reshape([1, *v[0].shape])
                 else:
-                    predictions_train[k] = v[0].reshape([1, *v[0].shape])
-            else:
-                predictions_train[k] = v
+                    predictions_train[k] = v
 
-    for item in predictions_test_bootstrap:
-        for k, v in item.items():
-            if k != 'p_t':
-                if k in predictions_test.keys():
-                    predictions_test[k] = np.append(predictions_test[k],v[0].reshape([1, *v[0].shape]), axis=0)
+        for item in predictions_test_bootstrap:
+            for k, v in item.items():
+                if k != 'p_t':
+                    if k in predictions_test.keys():
+                        predictions_test[k] = np.append(predictions_test[k],v[0].reshape([1, *v[0].shape]), axis=0)
+                    else:
+                        predictions_test[k] = v[0].reshape([1, *v[0].shape])
                 else:
-                    predictions_test[k] = v[0].reshape([1, *v[0].shape])
-            else:
-                predictions_test[k] = v
+                    predictions_test[k] = v
+    else:
+        predictions_train = predictions_train_bootstrap[0]
+        predictions_test = predictions_test_bootstrap[0]
 
     print("predictions_train final:")
     s = ""
