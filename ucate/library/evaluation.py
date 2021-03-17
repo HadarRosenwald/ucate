@@ -44,7 +44,7 @@ def get_predictions(
         )
         # we are not here
     print("now we run {core}.mc_sample for model_prop")
-    p_t, _ = prediction.mc_sample_2(x=x, model=model_prop.mc_sample)
+    p_t, _ = prediction.mc_sample_2(x=x, model=model_prop.mc_sample, mc_samples=mc_samples)
     p_t = p_t.mean(0)
     return {"mu_0": mu_0, "mu_1": mu_1, "y_0": y_0, "y_1": y_1, "p_t": p_t}
 # each (except for p_t) is with the shape of (num_mc_steps, n, 1). for train ihdp with defaults - its 100*672.
