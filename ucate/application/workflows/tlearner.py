@@ -202,8 +202,6 @@ def train(
 
         print("*** fitted model_1 ***")
 
-        sample_weights = np.random.exponential(scale=1.0, size=len(x_train))
-        sample_weights /= np.average(sample_weights)
         _ = model_prop.fit(
             [x_train, t_train[:, -1]],
             [t_train[:, -1], np.zeros_like(t_train[:, -1])],
