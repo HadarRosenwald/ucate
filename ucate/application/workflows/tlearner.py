@@ -3,6 +3,7 @@ import json
 import shutil
 import numpy as np
 import tensorflow as tf
+from sklearn.utils import resample
 
 from ucate.library import data
 from ucate.library import models
@@ -82,7 +83,7 @@ def train(
         model_name = "cnn"
         loss = tf.keras.losses.BinaryCrossentropy()
         error = tf.keras.metrics.BinaryAccuracy()
-    x_train, y_train, t_train, examples_per_treatment = dl.get_training_data(bootstrap=bootstrap)
+    x_train, y_train, t_train, examples_per_treatment = dl.get_training_data()
     idx_0_train = np.where(t_train[:, 0])[0]
     idx_1_train = np.where(t_train[:, 1])[0]
 
@@ -133,7 +134,7 @@ def train(
         dropout_rate=dropout_rate,
         regression=False,
         depth=2,
-        bootstrap_enabled=bootstrap or weighted_bootstrap,
+        bootstrap_enabled=False,
     )
     model_prop.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -150,13 +151,20 @@ def train(
     predictions_test_bootstrap = list()
 
     for i in range(mc_samples if (bootstrap or weighted_bootstrap) else 1):
+        print(f"==== iteration number {i} ====")
         print("\n---- AND NOW - we fit ----")
+        if bootstrap:
+            ix = [j for j in range(len(x_train))]
+            train_ix = resample(ix, replace=True, n_samples=len(x_train))
+            x_train_b, y_train_b, t_train_b = x_train[train_ix], y_train[train_ix], t_train[train_ix]
+            idx_0_train_b = np.where(t_train_b[:, 0])[0]
+            idx_1_train_b = np.where(t_train_b[:, 1])[0]
 
         sample_weights = np.random.exponential(scale=1.0, size=len(idx_0_train))
         sample_weights /= np.average(sample_weights)
         _ = model_0.fit(
-            [x_train[idx_0_train], y_train[idx_0_train]],  # Andrew: this is x and y. see that training is done on 'inupt'
-            [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])],  # Andrew: this is not used in t-learner
+            [x_train[idx_0_train], y_train[idx_0_train]] if not bootstrap else [x_train_b[idx_0_train_b], y_train_b[idx_0_train_b]],  # Andrew: this is x and y. see that training is done on 'inupt'
+            [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])] if not bootstrap else [y_train_b[idx_0_train_b], np.zeros_like(y_train_b[idx_0_train_b])],  # Andrew: this is not used in t-learner
             batch_size=batch_size,
             epochs=epochs,
             validation_split=0.3,
@@ -176,8 +184,8 @@ def train(
         sample_weights = np.random.exponential(scale=1.0, size=len(idx_1_train))
         sample_weights /= np.average(sample_weights)
         _ = model_1.fit(
-            [x_train[idx_1_train], y_train[idx_1_train]],
-            [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])],
+            [x_train[idx_1_train], y_train[idx_1_train]] if not bootstrap else [x_train_b[idx_1_train_b], y_train_b[idx_1_train_b]],
+            [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])] if not bootstrap else [y_train_b[idx_1_train_b], np.zeros_like(y_train_b[idx_1_train_b])],
             batch_size=batch_size,
             epochs=epochs,
             validation_split=0.3,
@@ -212,7 +220,6 @@ def train(
                 tf.keras.callbacks.EarlyStopping(patience=50),
             ],
             verbose=verbose,
-            sample_weight=sample_weights if weighted_bootstrap else None
         )
 
         print("*** fitted model_prop ***")

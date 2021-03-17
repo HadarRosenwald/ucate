@@ -28,7 +28,7 @@ def mc_sample(x, model, mc_samples=100):
 
 
 def mc_sample_2(x, model, mc_samples=100):
-    print("mc_sample_2: this will trigger 100*(several mpl.mc_sample_step -> core.py)")
+    print(f"mc_sample_2: this will trigger {mc_samples}*(several mpl.mc_sample_step -> core.py)")
     y, h = [], []
     for _ in range(mc_samples):
         y_pred, h_pred = model(x, batch_size=200)

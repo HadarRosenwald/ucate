@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from sklearn.utils import resample
 
 
 class IHDP(object):
@@ -36,15 +35,10 @@ class IHDP(object):
         self.dim_x_bin = self.train_data['x_bin'].shape[-1]
         self.dim_x = self.dim_x_cont + self.dim_x_bin
 
-    def get_training_data(self, bootstrap=False):
+    def get_training_data(self):
         x, y, t = self.preprocess(self.train_data)
         examples_per_treatment = t.sum(0)
-        if not bootstrap:
-            return x, y, t, examples_per_treatment
-        else:
-            ix = [i for i in range(len(x))]
-            train_ix = resample(ix, replace=True, n_samples=len(x))
-            return x[train_ix], y[train_ix], t[train_ix], examples_per_treatment
+        return x, y, t, examples_per_treatment
 
     def get_test_data(self, test_set=True):
         _data = self.test_data if test_set else self.train_data
