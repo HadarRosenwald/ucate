@@ -6,6 +6,9 @@ import json
 import click
 import tensorflow as tf
 
+import matplotlib
+matplotlib.use('Agg')
+
 from ucate.application import workflows
 
 
