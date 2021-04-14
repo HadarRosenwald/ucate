@@ -11,6 +11,11 @@ matplotlib.use('Agg')
 
 from ucate.application import workflows
 
+seed_value=42
+os.environ['PYTHONHASHSEED'] = str(seed_value)
+import random
+random.seed(seed_value)
+tf.random.set_seed(seed_value)
 
 @click.group(chain=True)
 @click.pass_context

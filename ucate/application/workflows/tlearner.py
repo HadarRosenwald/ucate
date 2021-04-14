@@ -10,6 +10,11 @@ from ucate.library import models
 from ucate.library import evaluation
 from ucate.library.utils import plotting
 
+seed_value = 42
+import random
+random.seed(seed_value)
+np.random.seed(seed_value)
+tf.random.set_seed(seed_value)
 
 def train(
     job_dir,
