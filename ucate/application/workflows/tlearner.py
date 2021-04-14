@@ -272,8 +272,8 @@ def train(
         predictions_train_bootstrap.append(predictions_train)
         predictions_test_bootstrap.append(predictions_test)
 
-        np.savez(os.path.join(output_dir, f"predictions_train_{i}.npz"), **predictions_train)
-        np.savez(os.path.join(output_dir, f"predictions_test_{i}.npz"), **predictions_test)
+        # np.savez(os.path.join(output_dir, f"predictions_train_{i}.npz"), **predictions_train)
+        # np.savez(os.path.join(output_dir, f"predictions_test_{i}.npz"), **predictions_test)
 
     print(f"predictions_train_bootstrap is a {type(predictions_train_bootstrap)} in the size of {len(predictions_train_bootstrap)}")
 
