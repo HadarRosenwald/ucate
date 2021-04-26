@@ -4,6 +4,10 @@ from ucate.library.utils import plotting
 from ucate.library.utils import prediction
 from ucate.library import scratch
 
+seed_value = 42
+import random
+random.seed(seed_value)
+np.random.seed(seed_value)
 
 def get_predictions(
     dl,
@@ -89,6 +93,7 @@ def evaluate(
 def evaluate_2(
     dl,
     predictions,
+    final_mu,
     regression,
     test_set,
     output_dir,
@@ -106,6 +111,9 @@ def evaluate_2(
         y_1=predictions["y_1"],
         regression=regression,
     )
+    mu_1, mu_0 = final_mu["mu_1"], final_mu["mu_0"]
+    cate_pred = mu_1 - mu_0
+
     recommendation_pred = cate_pred.ravel() > 0.0
     recommendation_true = cate > 0.0
     errors = recommendation_pred != recommendation_true

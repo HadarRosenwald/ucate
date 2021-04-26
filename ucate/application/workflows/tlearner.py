@@ -16,6 +16,62 @@ random.seed(seed_value)
 np.random.seed(seed_value)
 tf.random.set_seed(seed_value)
 
+
+def get_final_cate(model_0, model_1, x_train, y_train, idx_0_train, idx_1_train, batch_size, epochs, model_0_checkpoint,
+                   model_1_checkpoint, verbose, dl):
+    # Instantiate trainer
+    bootstrap_enabled = model_0.bootstrap_enabled
+    model_0.bootstrap_enabled = False
+    model_1.bootstrap_enabled = False
+
+    _ = model_0.fit(
+        [x_train[idx_0_train], y_train[idx_0_train]],
+        [y_train[idx_0_train], np.zeros_like(y_train[idx_0_train])],
+        batch_size=batch_size,
+        epochs=epochs,
+        validation_split=0.3,
+        shuffle=True,
+        callbacks=[
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=model_0_checkpoint, save_best_only=True, save_weights_only=True
+            ),
+            tf.keras.callbacks.EarlyStopping(patience=50),
+        ],
+        verbose=verbose,
+    )
+    _ = model_1.fit(
+        [x_train[idx_1_train], y_train[idx_1_train]],
+        [y_train[idx_1_train], np.zeros_like(y_train[idx_1_train])],
+        batch_size=batch_size,
+        epochs=epochs,
+        validation_split=0.3,
+        shuffle=True,
+        callbacks=[
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=model_1_checkpoint, save_best_only=True, save_weights_only=True
+            ),
+            tf.keras.callbacks.EarlyStopping(patience=50),
+        ],
+        verbose=verbose,
+    )
+    # Restore best models
+    model_0.load_weights(model_0_checkpoint)
+    model_1.load_weights(model_1_checkpoint)
+
+    x, _ = dl.get_test_data(test_set=False)
+    mu_0_train, y_0_train = model_0.mc_sample(x, batch_size=200)
+    mu_1_train, y_1_train = model_1.mc_sample(x, batch_size=200)
+
+    x, _ = dl.get_test_data(test_set=True)
+    mu_0_test, y_0_test = model_0.mc_sample(x, batch_size=200)
+    mu_1_test, y_1_test = model_1.mc_sample(x, batch_size=200)
+
+
+    model_0.bootstrap_enabled = bootstrap_enabled
+    model_1.bootstrap_enabled = bootstrap_enabled
+
+    return mu_0_train, mu_1_train, mu_0_test, mu_1_test
+
 def train(
     job_dir,
     dataset_name,
@@ -139,7 +195,7 @@ def train(
         dropout_rate=dropout_rate,
         regression=False,
         depth=2,
-        bootstrap_enabled=False,
+        bootstrap_enabled=True,  # TODO rename this property to "mc-disabled"
     )
     model_prop.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -154,6 +210,15 @@ def train(
 
     predictions_train_bootstrap = list()
     predictions_test_bootstrap = list()
+
+    mu_0_train, mu_1_train, mu_0_test, mu_1_test = get_final_cate(model_0, model_1, x_train, y_train, idx_0_train, idx_1_train, batch_size, epochs, model_0_checkpoint,
+                   model_1_checkpoint, verbose, dl)
+
+    final_mu_train = {"mu_0": mu_0_train, "mu_1": mu_1_train}
+    final_mu_test = {"mu_0": mu_0_test, "mu_1": mu_1_test}
+
+    np.savez(os.path.join(output_dir, "final_mu_train.npz"), **final_mu_train)
+    np.savez(os.path.join(output_dir, "final_mu_test.npz"), **final_mu_test)
 
     for i in range(mc_samples if (bootstrap or weighted_bootstrap) else 1):
         print(f"==== iteration number {i} ====")
@@ -207,30 +272,32 @@ def train(
 
         print("*** fitted model_1 ***")
 
-        _ = model_prop.fit(
-            [x_train, t_train[:, -1]],
-            [t_train[:, -1], np.zeros_like(t_train[:, -1])],
-            batch_size=batch_size,
-            epochs=epochs,
-            validation_split=0.3,
-            shuffle=True,
-            callbacks=[
-                tf.keras.callbacks.ModelCheckpoint(
-                    filepath=model_prop_checkpoint,
-                    save_best_only=True,
-                    save_weights_only=True,
-                ),
-                tf.keras.callbacks.EarlyStopping(patience=50),
-            ],
-            verbose=verbose,
-        )
+        if i == 0:
+            _ = model_prop.fit(
+                [x_train, t_train[:, -1]],
+                [t_train[:, -1], np.zeros_like(t_train[:, -1])],
+                batch_size=batch_size,
+                epochs=epochs,
+                validation_split=0.3,
+                shuffle=True,
+                callbacks=[
+                    tf.keras.callbacks.ModelCheckpoint(
+                        filepath=model_prop_checkpoint,
+                        save_best_only=True,
+                        save_weights_only=True,
+                    ),
+                    tf.keras.callbacks.EarlyStopping(patience=50),
+                ],
+                verbose=verbose,
+            )
 
-        print("*** fitted model_prop ***")
+            print("*** fitted model_prop ***")
         print("---- finished fitting on train data ----\n")
         # Restore best models
         model_0.load_weights(model_0_checkpoint)
         model_1.load_weights(model_1_checkpoint)
-        model_prop.load_weights(model_prop_checkpoint)
+        if i == 0:
+            model_prop.load_weights(model_prop_checkpoint)
 
         print("get_prediction calls prediction.mc_sample_tl [with argument of type mlp.BayesianNeuralNetwork.mc_sample "
               "(inherited from core.py)] -> prediction.mc_sample_2 that runs through the model (mlp.mc_sample) for "

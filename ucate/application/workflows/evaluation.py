@@ -52,6 +52,15 @@ def evaluate(output_dir):
     predictions_test = np.load(
         os.path.join(output_dir, "predictions_test.npz"), allow_pickle=True
     )
+
+    final_mu_train = np.load(
+        os.path.join(output_dir, "final_mu_train.npz"), allow_pickle=True
+    )
+    final_mu_test = np.load(
+        os.path.join(output_dir, "final_mu_test.npz"), allow_pickle=True
+    )
+
+
     with open(os.path.join(output_dir, "config.json")) as json_file:
         config = json.load(json_file)
     trial = config["trial"]
@@ -69,6 +78,7 @@ def evaluate(output_dir):
     pehe_train, error_train, quantiles = evaluation.evaluate_2(
         dl=dl,
         predictions=predictions_train,
+        final_mu=final_mu_train,
         regression=regression,
         test_set=False,
         output_dir=output_dir,
@@ -80,6 +90,7 @@ def evaluate(output_dir):
     pehe_test, error_test, _ = evaluation.evaluate_2(
         dl=dl,
         predictions=predictions_test,
+        final_mu=final_mu_test,
         regression=regression,
         test_set=True,
         output_dir=output_dir,
